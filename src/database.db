@@ -1,0 +1,130 @@
+CREATE TABLE language (
+    id INT PRIMARY KEY,
+    type VARCHAR(255),
+    created_at DATETIME,
+    updated_at DATETIME,
+    deleted_at DATETIME
+);
+
+CREATE TABLE difficulty (
+    id INT PRIMARY KEY,
+    type VARCHAR(255),  -- placeholder until a proper type is determined
+    created_at DATETIME,
+    updated_at DATETIME,
+    deleted_at DATETIME
+);
+
+CREATE TABLE classification (
+    id INT PRIMARY KEY,
+    type VARCHAR(255),
+    created_at DATETIME,
+    updated_at DATETIME,
+    deleted_at DATETIME
+);
+
+CREATE TABLE code (
+    id INT PRIMARY KEY,
+    parent_id INT,
+    title VARCHAR(255),
+    language_id INT,
+    difficulty_id INT,
+    classification_id INT,
+    line INT,
+    page INT,
+    created_at DATETIME,
+    updated_at DATETIME,
+    deleted_at DATETIME,
+    FOREIGN KEY (parent_id) REFERENCES code(id),
+    FOREIGN KEY (language_id) REFERENCES language(id),
+    FOREIGN KEY (difficulty_id) REFERENCES difficulty(id),
+    FOREIGN KEY (classification_id) REFERENCES classification(id)
+);
+
+CREATE TABLE state (
+    id INT PRIMARY KEY,
+    type VARCHAR(255),
+    created_at DATETIME,
+    updated_at DATETIME,
+    deleted_at DATETIME
+);
+
+CREATE TABLE tried_user (
+    id INT PRIMARY KEY,
+    ipv4 VARCHAR(255),
+    name VARCHAR(255),
+    created_at DATETIME,
+    updated_at DATETIME,
+    deleted_at DATETIME
+);
+
+CREATE TABLE execution_log (
+    id INT PRIMARY KEY,
+    parent_id INT,
+    code_id INT,
+    tried_user_id INT,
+    tried_user_name VARCHAR(255),
+    state_id INT,
+    trial_count INT,
+    max_wpm INT,
+    min_wpm INT,
+    avg_wpm INT,
+    accuracy INT,
+    score INT,
+    created_at DATETIME,
+    updated_at DATETIME,
+    deleted_at DATETIME,
+    FOREIGN KEY (parent_id) REFERENCES execution_log(id),
+    FOREIGN KEY (code_id) REFERENCES code(id),
+    FOREIGN KEY (tried_user_id) REFERENCES tried_user(id),
+    FOREIGN KEY (state_id) REFERENCES state(id),
+    UNIQUE (tried_user_id, code_id)
+);
+
+CREATE TABLE temp_execution_log (
+    id INT PRIMARY KEY,
+    code_id INT,
+    tried_user_id INT,
+    state_id INT,
+    current_page INT,
+    sum_wpm INT,
+    max_wpm INT,
+    min_wpm INT,
+    current_accuracy FLOAT,
+    avg_accuracy FLOAT,
+    created_at DATETIME,
+    updated_at DATETIME,
+    deleted_at DATETIME,
+    FOREIGN KEY (code_id) REFERENCES code(id),
+    FOREIGN KEY (tried_user_id) REFERENCES tried_user(id),
+    FOREIGN KEY (state_id) REFERENCES state(id)
+);
+
+CREATE VIEW ranking AS
+SELECT
+    code_id,
+    ROW_NUMBER() OVER (ORDER BY execution_log_score DESC) AS rank_pos,
+    execution_log_avg_wpm,
+    execution_log_accuracy,
+    execution_log_score,
+    tried_user_id,
+    tried_user_name
+FROM (
+    SELECT
+        e.code_id,
+        e.avg_wpm AS execution_log_avg_wpm,
+        e.accuracy AS execution_log_accuracy,
+        e.score AS execution_log_score,
+        t.id AS tried_user_id,
+        t.name AS tried_user_name
+    FROM
+        execution_log e
+    JOIN
+        tried_user t ON e.tried_user_id = t.id
+    WHERE
+        e.accuracy >= 95
+        AND e.state_id = (SELECT id FROM state WHERE type = 'complete')
+        AND e.deleted_at IS NULL
+    ORDER BY
+        e.score DESC
+    LIMIT 10
+) AS ranked;
