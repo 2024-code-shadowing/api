@@ -16,4 +16,9 @@ public class CodeController {
     public ResponseEntity<?> getTitles(){
         return codeService.getTitles();
     }
+
+    @GetMapping("/contents/{codeId}")
+    public ResponseEntity<?> getCodeContents(@PathVariable("codeId") Integer codeId){
+        return codeService.getCodeContents(codeId);
+    }
 }
